@@ -88,7 +88,7 @@ func TestPodSource(t *testing.T) {
 						NodeName:    "my-node1",
 					},
 					Status: corev1.PodStatus{
-						PodIP: "10.0.1.1",
+						PodIP: "10.0.1.3",
 					},
 				},
 				{
@@ -105,7 +105,7 @@ func TestPodSource(t *testing.T) {
 						NodeName:    "my-node2",
 					},
 					Status: corev1.PodStatus{
-						PodIP: "10.0.1.2",
+						PodIP: "10.0.1.4",
 					},
 				},
 			},
@@ -158,7 +158,7 @@ func TestPodSource(t *testing.T) {
 						NodeName:    "my-node1",
 					},
 					Status: corev1.PodStatus{
-						PodIP: "10.0.1.1",
+						PodIP: "10.0.1.3",
 					},
 				},
 				{
@@ -175,7 +175,7 @@ func TestPodSource(t *testing.T) {
 						NodeName:    "my-node2",
 					},
 					Status: corev1.PodStatus{
-						PodIP: "10.0.1.2",
+						PodIP: "10.0.1.4",
 					},
 				},
 			},
@@ -226,7 +226,7 @@ func TestPodSource(t *testing.T) {
 						NodeName:    "my-node1",
 					},
 					Status: corev1.PodStatus{
-						PodIP: "2001:DB8::1",
+						PodIP: "2001:DB8::3",
 					},
 				},
 				{
@@ -243,7 +243,7 @@ func TestPodSource(t *testing.T) {
 						NodeName:    "my-node2",
 					},
 					Status: corev1.PodStatus{
-						PodIP: "2001:DB8::2",
+						PodIP: "2001:DB8::4",
 					},
 				},
 			},
@@ -294,7 +294,7 @@ func TestPodSource(t *testing.T) {
 						NodeName:    "my-node1",
 					},
 					Status: corev1.PodStatus{
-						PodIP: "2001:DB8::1",
+						PodIP: "2001:DB8::3",
 					},
 				},
 				{
@@ -311,7 +311,7 @@ func TestPodSource(t *testing.T) {
 						NodeName:    "my-node2",
 					},
 					Status: corev1.PodStatus{
-						PodIP: "2001:DB8::2",
+						PodIP: "2001:DB8::4",
 					},
 				},
 			},
@@ -365,7 +365,7 @@ func TestPodSource(t *testing.T) {
 						NodeName:    "my-node1",
 					},
 					Status: corev1.PodStatus{
-						PodIP: "10.0.1.1",
+						PodIP: "10.0.1.3",
 					},
 				},
 				{
@@ -381,7 +381,7 @@ func TestPodSource(t *testing.T) {
 						NodeName:    "my-node2",
 					},
 					Status: corev1.PodStatus{
-						PodIP: "10.0.1.2",
+						PodIP: "10.0.1.4",
 					},
 				},
 			},
@@ -434,7 +434,7 @@ func TestPodSource(t *testing.T) {
 						NodeName:    "my-node1",
 					},
 					Status: corev1.PodStatus{
-						PodIP: "10.0.1.1",
+						PodIP: "10.0.1.3",
 					},
 				},
 				{
@@ -451,7 +451,7 @@ func TestPodSource(t *testing.T) {
 						NodeName:    "my-node2",
 					},
 					Status: corev1.PodStatus{
-						PodIP: "100.0.1.2",
+						PodIP: "100.0.1.4",
 					},
 				},
 			},
@@ -504,7 +504,7 @@ func TestPodSource(t *testing.T) {
 						NodeName:    "my-node1",
 					},
 					Status: corev1.PodStatus{
-						PodIP: "10.0.1.1",
+						PodIP: "10.0.1.3",
 					},
 				},
 				{
@@ -521,7 +521,7 @@ func TestPodSource(t *testing.T) {
 						NodeName:    "my-node2",
 					},
 					Status: corev1.PodStatus{
-						PodIP: "100.0.1.2",
+						PodIP: "100.0.1.4",
 					},
 				},
 			},
