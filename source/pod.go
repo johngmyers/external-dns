@@ -31,15 +31,16 @@ import (
 )
 
 type podSource struct {
-	client        kubernetes.Interface
-	namespace     string
-	podInformer   coreinformers.PodInformer
-	nodeInformer  coreinformers.NodeInformer
-	compatibility string
+	client             kubernetes.Interface
+	namespace          string
+	podInformer        coreinformers.PodInformer
+	nodeInformer       coreinformers.NodeInformer
+	compatibility      string
+	internalIPFamilies IPFamilies
 }
 
 // NewPodSource creates a new podSource with the given config.
-func NewPodSource(ctx context.Context, kubeClient kubernetes.Interface, namespace string, compatibility string) (Source, error) {
+func NewPodSource(ctx context.Context, kubeClient kubernetes.Interface, namespace string, compatibility string, internalIPFamilies IPFamilies) (Source, error) {
 	informerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithNamespace(namespace))
 	podInformer := informerFactory.Core().V1().Pods()
 	nodeInformer := informerFactory.Core().V1().Nodes()
@@ -65,11 +66,12 @@ func NewPodSource(ctx context.Context, kubeClient kubernetes.Interface, namespac
 	}
 
 	return &podSource{
-		client:        kubeClient,
-		podInformer:   podInformer,
-		nodeInformer:  nodeInformer,
-		namespace:     namespace,
-		compatibility: compatibility,
+		client:             kubeClient,
+		podInformer:        podInformer,
+		nodeInformer:       nodeInformer,
+		namespace:          namespace,
+		compatibility:      compatibility,
+		internalIPFamilies: internalIPFamilies,
 	}, nil
 }
 
@@ -99,13 +101,20 @@ func (ps *podSource) Endpoints(ctx context.Context) ([]*endpoint.Endpoint, error
 			recordType := suitableType(address.Address)
 
 			if address.Type == corev1.NodeInternalIP {
+				if recordType == endpoint.RecordTypeA && ps.internalIPFamilies == InternalIPv6Only {
+					continue
+				}
 				if domain, ok := pod.Annotations[internalHostnameAnnotationKey]; ok {
-					addToEndpointMap(endpointMap, domain, recordType, address.Address)
+					if recordType != endpoint.RecordTypeAAAA || ps.internalIPFamilies != InternalIPv4Only {
+						addToEndpointMap(endpointMap, domain, recordType, address.Address)
+					}
 				}
 
 				if ps.compatibility == "kops-dns-controller" {
 					if domain, ok := pod.Annotations[kopsDNSControllerInternalHostnameAnnotationKey]; ok {
-						addToEndpointMap(endpointMap, domain, recordType, address.Address)
+						if recordType != endpoint.RecordTypeAAAA || ps.internalIPFamilies != InternalIPv4Only {
+							addToEndpointMap(endpointMap, domain, recordType, address.Address)
+						}
 					}
 				}
 			}

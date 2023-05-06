@@ -10,3 +10,5 @@ resources:
   - ./external-dns-serviceaccount.yaml
   - ./external-dns-clusterrole.yaml
   - ./external-dns-clusterrolebinding.yaml
+  - ./external-dns-role.yaml
+  - ./external-dns-rolebinding.yaml

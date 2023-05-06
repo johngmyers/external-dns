@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 
 	"sigs.k8s.io/external-dns/endpoint"
 )
@@ -77,6 +78,14 @@ const (
 const (
 	ttlMinimum = 1
 	ttlMaximum = math.MaxInt32
+)
+
+type IPFamilies string
+
+const (
+	InternalIPv4Only  IPFamilies = "IPv4"
+	InternalIPv6Only  IPFamilies = "IPv6"
+	InternalDualStack IPFamilies = "DualStack"
 )
 
 // Source defines the interface Endpoint sources should implement.
@@ -376,4 +385,35 @@ func waitForDynamicCacheSync(ctx context.Context, factory dynamicInformerFactory
 func isIPv6String(ip string) bool {
 	netIP := net.ParseIP(ip)
 	return netIP != nil && netIP.To4() == nil
+}
+
+func GetInternalSupportedFamilies(client kubernetes.Interface) (IPFamilies, error) {
+	service, err := client.CoreV1().Services("kube-dns").Get(context.Background(), "kube-dns", metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("querying kube-dns Service: %w", err)
+	}
+	if len(service.Spec.ClusterIPs) > 1 {
+		return InternalDualStack, nil
+	}
+	if suitableType(service.Spec.ClusterIP) == endpoint.RecordTypeAAAA {
+		return InternalIPv6Only, nil
+	}
+	return InternalIPv4Only, nil
+}
+
+func filterInternalEndpoints(endpoints []*endpoint.Endpoint, families IPFamilies) []*endpoint.Endpoint {
+	filtered := make([]*endpoint.Endpoint, 0, len(endpoints))
+	for _, ep := range endpoints {
+		switch ep.RecordType {
+		case endpoint.RecordTypeA:
+			if families != InternalIPv6Only {
+				filtered = append(filtered, ep)
+			}
+		case endpoint.RecordTypeAAAA:
+			if families != InternalIPv4Only {
+				filtered = append(filtered, ep)
+			}
+		}
+	}
+	return filtered
 }

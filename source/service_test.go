@@ -79,6 +79,7 @@ func (suite *ServiceSuite) SetupTest() {
 		false,
 		labels.Everything(),
 		false,
+		InternalDualStack,
 	)
 	suite.NoError(err, "should initialize service source")
 }
@@ -160,6 +161,7 @@ func testServiceSourceNewServiceSource(t *testing.T) {
 				false,
 				labels.Everything(),
 				false,
+				InternalDualStack,
 			)
 
 			if ti.expectError {
@@ -196,6 +198,7 @@ func testServiceSourceEndpoints(t *testing.T) {
 		expectError                 bool
 		serviceLabelSelector        string
 		resolveLoadBalancerHostname bool
+		internalIPFamilies          IPFamilies
 	}{
 		{
 			title:              "no annotated services return no endpoints",
@@ -405,6 +408,25 @@ func testServiceSourceEndpoints(t *testing.T) {
 			lbs:                         []string{"example.com"}, // Use a resolvable hostname for testing.
 			serviceTypesFilter:          []string{},
 			resolveLoadBalancerHostname: true,
+			expected: []*endpoint.Endpoint{
+				{DNSName: "foo.example.org", RecordType: endpoint.RecordTypeA, Targets: endpoint.Targets{"93.184.216.34"}},
+				{DNSName: "foo.example.org", RecordType: endpoint.RecordTypeAAAA, Targets: endpoint.Targets{"2606:2800:220:1:248:1893:25c8:1946"}},
+			},
+		},
+		{
+			title:        "annotated services return an endpoint with hostname then resolve hostname ipv4-only pod network",
+			svcNamespace: "testing",
+			svcName:      "foo",
+			svcType:      v1.ServiceTypeLoadBalancer,
+			labels:       map[string]string{},
+			annotations: map[string]string{
+				hostnameAnnotationKey: "foo.example.org.",
+			},
+			externalIPs:                 []string{},
+			lbs:                         []string{"example.com"}, // Use a resolvable hostname for testing.
+			serviceTypesFilter:          []string{},
+			resolveLoadBalancerHostname: true,
+			internalIPFamilies:          InternalIPv4Only,
 			expected: []*endpoint.Endpoint{
 				{DNSName: "foo.example.org", RecordType: endpoint.RecordTypeA, Targets: endpoint.Targets{"93.184.216.34"}},
 				{DNSName: "foo.example.org", RecordType: endpoint.RecordTypeAAAA, Targets: endpoint.Targets{"2606:2800:220:1:248:1893:25c8:1946"}},
@@ -1024,6 +1046,7 @@ func testServiceSourceEndpoints(t *testing.T) {
 			lbs:                []string{"1.1.1.1", "2001:db8::1"},
 			serviceTypesFilter: []string{},
 			annotations:        map[string]string{hostnameAnnotationKey: "foobar.example.org"},
+			internalIPFamilies: InternalIPv4Only,
 			expected: []*endpoint.Endpoint{
 				{DNSName: "foobar.example.org", RecordType: endpoint.RecordTypeA, Targets: endpoint.Targets{"1.1.1.1"}},
 				{DNSName: "foobar.example.org", RecordType: endpoint.RecordTypeAAAA, Targets: endpoint.Targets{"2001:db8::1"}},
@@ -1093,6 +1116,10 @@ func testServiceSourceEndpoints(t *testing.T) {
 			}
 
 			// Create our object under test and get the endpoints.
+			internalIPFamilies := tc.internalIPFamilies
+			if internalIPFamilies == "" {
+				internalIPFamilies = InternalDualStack
+			}
 			client, err := NewServiceSource(
 				context.TODO(),
 				kubernetes,
@@ -1108,6 +1135,7 @@ func testServiceSourceEndpoints(t *testing.T) {
 				tc.ignoreHostnameAnnotation,
 				sourceLabel,
 				tc.resolveLoadBalancerHostname,
+				internalIPFamilies,
 			)
 
 			require.NoError(t, err)
@@ -1298,6 +1326,7 @@ func testMultipleServicesEndpoints(t *testing.T) {
 				tc.ignoreHostnameAnnotation,
 				labels.Everything(),
 				false,
+				InternalDualStack,
 			)
 			require.NoError(t, err)
 
@@ -1464,6 +1493,7 @@ func TestClusterIpServices(t *testing.T) {
 				tc.ignoreHostnameAnnotation,
 				labelSelector,
 				false,
+				InternalDualStack,
 			)
 			require.NoError(t, err)
 
@@ -1498,6 +1528,7 @@ func TestServiceSourceNodePortServices(t *testing.T) {
 		labels                   map[string]string
 		annotations              map[string]string
 		lbs                      []string
+		internalIPFamilies       IPFamilies
 		expected                 []*endpoint.Endpoint
 		expectError              bool
 		nodes                    []*v1.Node
@@ -1515,6 +1546,7 @@ func TestServiceSourceNodePortServices(t *testing.T) {
 			annotations: map[string]string{
 				hostnameAnnotationKey: "foo.example.org.",
 			},
+			internalIPFamilies: InternalIPv4Only,
 			expected: []*endpoint.Endpoint{
 				{DNSName: "_foo._tcp.foo.example.org", Targets: endpoint.Targets{"0 50 30192 foo.example.org"}, RecordType: endpoint.RecordTypeSRV},
 				{DNSName: "foo.example.org", Targets: endpoint.Targets{"54.10.11.1", "54.10.11.2"}, RecordType: endpoint.RecordTypeA},
@@ -1624,6 +1656,7 @@ func TestServiceSourceNodePortServices(t *testing.T) {
 			annotations: map[string]string{
 				hostnameAnnotationKey: "foo.example.org.",
 			},
+			internalIPFamilies: InternalIPv6Only,
 			expected: []*endpoint.Endpoint{
 				{DNSName: "_foo._tcp.foo.example.org", Targets: endpoint.Targets{"0 50 30192 foo.example.org"}, RecordType: endpoint.RecordTypeSRV},
 				{DNSName: "foo.example.org", Targets: endpoint.Targets{"10.0.1.1", "10.0.1.2"}, RecordType: endpoint.RecordTypeA},
@@ -1745,6 +1778,7 @@ func TestServiceSourceNodePortServices(t *testing.T) {
 				hostnameAnnotationKey: "foo.example.org.",
 				accessAnnotationKey:   "private",
 			},
+			internalIPFamilies: InternalIPv6Only,
 			expected: []*endpoint.Endpoint{
 				{DNSName: "_foo._tcp.foo.example.org", Targets: endpoint.Targets{"0 50 30192 foo.example.org"}, RecordType: endpoint.RecordTypeSRV},
 				{DNSName: "foo.example.org", Targets: endpoint.Targets{"10.0.1.1", "10.0.1.2"}, RecordType: endpoint.RecordTypeA},
@@ -1815,7 +1849,7 @@ func TestServiceSourceNodePortServices(t *testing.T) {
 			}},
 		},
 		{
-			title:            "node port services annotated DNS Controller annotations return an endpoint where all targets has the node role",
+			title:            "node port services annotated DNS Controller annotations return an endpoint where all targets have the node role",
 			svcNamespace:     "testing",
 			svcName:          "foo",
 			svcType:          v1.ServiceTypeNodePort,
@@ -1825,10 +1859,103 @@ func TestServiceSourceNodePortServices(t *testing.T) {
 			annotations: map[string]string{
 				kopsDNSControllerInternalHostnameAnnotationKey: "internal.foo.example.org., internal.bar.example.org",
 			},
+			internalIPFamilies: InternalDualStack,
 			expected: []*endpoint.Endpoint{
 				{DNSName: "internal.foo.example.org", RecordType: endpoint.RecordTypeA, Targets: endpoint.Targets{"10.0.1.1"}},
 				{DNSName: "internal.foo.example.org", RecordType: endpoint.RecordTypeAAAA, Targets: endpoint.Targets{"2001:DB8::1"}},
 				{DNSName: "internal.bar.example.org", RecordType: endpoint.RecordTypeA, Targets: endpoint.Targets{"10.0.1.1"}},
+				{DNSName: "internal.bar.example.org", RecordType: endpoint.RecordTypeAAAA, Targets: endpoint.Targets{"2001:DB8::1"}},
+			},
+			nodes: []*v1.Node{{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Labels: map[string]string{
+						"node-role.kubernetes.io/node": "",
+					},
+				},
+				Status: v1.NodeStatus{
+					Addresses: []v1.NodeAddress{
+						{Type: v1.NodeExternalIP, Address: "54.10.11.1"},
+						{Type: v1.NodeInternalIP, Address: "10.0.1.1"},
+						{Type: v1.NodeInternalIP, Address: "2001:DB8::1"},
+					},
+				},
+			}, {
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node2",
+					Labels: map[string]string{
+						"node-role.kubernetes.io/control-plane": "",
+					},
+				},
+				Status: v1.NodeStatus{
+					Addresses: []v1.NodeAddress{
+						{Type: v1.NodeExternalIP, Address: "54.10.11.2"},
+						{Type: v1.NodeInternalIP, Address: "10.0.1.2"},
+						{Type: v1.NodeInternalIP, Address: "2001:DB8::2"},
+					},
+				},
+			}},
+		},
+		{
+			title:            "node port services annotated DNS Controller annotations return an endpoint where all targets have the node role, ipv4 only",
+			svcNamespace:     "testing",
+			svcName:          "foo",
+			svcType:          v1.ServiceTypeNodePort,
+			svcTrafficPolicy: v1.ServiceExternalTrafficPolicyTypeCluster,
+			compatibility:    "kops-dns-controller",
+			labels:           map[string]string{},
+			annotations: map[string]string{
+				kopsDNSControllerInternalHostnameAnnotationKey: "internal.foo.example.org., internal.bar.example.org",
+			},
+			internalIPFamilies: InternalIPv4Only,
+			expected: []*endpoint.Endpoint{
+				{DNSName: "internal.foo.example.org", RecordType: endpoint.RecordTypeA, Targets: endpoint.Targets{"10.0.1.1"}},
+				{DNSName: "internal.bar.example.org", RecordType: endpoint.RecordTypeA, Targets: endpoint.Targets{"10.0.1.1"}},
+			},
+			nodes: []*v1.Node{{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Labels: map[string]string{
+						"node-role.kubernetes.io/node": "",
+					},
+				},
+				Status: v1.NodeStatus{
+					Addresses: []v1.NodeAddress{
+						{Type: v1.NodeExternalIP, Address: "54.10.11.1"},
+						{Type: v1.NodeInternalIP, Address: "10.0.1.1"},
+						{Type: v1.NodeInternalIP, Address: "2001:DB8::1"},
+					},
+				},
+			}, {
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node2",
+					Labels: map[string]string{
+						"node-role.kubernetes.io/control-plane": "",
+					},
+				},
+				Status: v1.NodeStatus{
+					Addresses: []v1.NodeAddress{
+						{Type: v1.NodeExternalIP, Address: "54.10.11.2"},
+						{Type: v1.NodeInternalIP, Address: "10.0.1.2"},
+						{Type: v1.NodeInternalIP, Address: "2001:DB8::2"},
+					},
+				},
+			}},
+		},
+		{
+			title:            "node port services annotated DNS Controller annotations return an endpoint where all targets have the node role, IPv6 only",
+			svcNamespace:     "testing",
+			svcName:          "foo",
+			svcType:          v1.ServiceTypeNodePort,
+			svcTrafficPolicy: v1.ServiceExternalTrafficPolicyTypeCluster,
+			compatibility:    "kops-dns-controller",
+			labels:           map[string]string{},
+			annotations: map[string]string{
+				kopsDNSControllerInternalHostnameAnnotationKey: "internal.foo.example.org., internal.bar.example.org",
+			},
+			internalIPFamilies: InternalIPv6Only,
+			expected: []*endpoint.Endpoint{
+				{DNSName: "internal.foo.example.org", RecordType: endpoint.RecordTypeAAAA, Targets: endpoint.Targets{"2001:DB8::1"}},
 				{DNSName: "internal.bar.example.org", RecordType: endpoint.RecordTypeAAAA, Targets: endpoint.Targets{"2001:DB8::1"}},
 			},
 			nodes: []*v1.Node{{
@@ -1917,6 +2044,7 @@ func TestServiceSourceNodePortServices(t *testing.T) {
 			annotations: map[string]string{
 				kopsDNSControllerHostnameAnnotationKey: "foo.example.org., bar.example.org",
 			},
+			internalIPFamilies: InternalIPv6Only,
 			expected: []*endpoint.Endpoint{
 				{DNSName: "foo.example.org", RecordType: endpoint.RecordTypeA, Targets: endpoint.Targets{"54.10.11.1", "54.10.11.2"}},
 				{DNSName: "foo.example.org", RecordType: endpoint.RecordTypeAAAA, Targets: endpoint.Targets{"2001:DB8::1", "2001:DB8::2"}},
@@ -2057,6 +2185,10 @@ func TestServiceSourceNodePortServices(t *testing.T) {
 			require.NoError(t, err)
 
 			// Create our object under test and get the endpoints.
+			internalIPFamilies := tc.internalIPFamilies
+			if internalIPFamilies == "" {
+				internalIPFamilies = InternalDualStack
+			}
 			client, _ := NewServiceSource(
 				context.TODO(),
 				kubernetes,
@@ -2072,6 +2204,7 @@ func TestServiceSourceNodePortServices(t *testing.T) {
 				tc.ignoreHostnameAnnotation,
 				labels.Everything(),
 				false,
+				internalIPFamilies,
 			)
 			require.NoError(t, err)
 
@@ -2546,6 +2679,7 @@ func TestHeadlessServices(t *testing.T) {
 				tc.ignoreHostnameAnnotation,
 				labels.Everything(),
 				false,
+				InternalDualStack,
 			)
 			require.NoError(t, err)
 
@@ -2904,6 +3038,7 @@ func TestHeadlessServicesHostIP(t *testing.T) {
 				tc.ignoreHostnameAnnotation,
 				labels.Everything(),
 				false,
+				InternalDualStack,
 			)
 			require.NoError(t, err)
 
@@ -3017,6 +3152,7 @@ func TestExternalServices(t *testing.T) {
 				tc.ignoreHostnameAnnotation,
 				labels.Everything(),
 				false,
+				InternalDualStack,
 			)
 			require.NoError(t, err)
 
@@ -3072,6 +3208,7 @@ func BenchmarkServiceEndpoints(b *testing.B) {
 		false,
 		labels.Everything(),
 		false,
+		InternalDualStack,
 	)
 	require.NoError(b, err)
 

@@ -106,6 +106,15 @@ func main() {
 	go serveMetrics(cfg.MetricsAddress)
 	go handleSigterm(cancel)
 
+	kubeClient, err := source.NewKubeClient(cfg.KubeConfig, cfg.APIServerURL, cfg.RequestTimeout)
+	if err != nil {
+		log.Fatal(err)
+	}
+	internalIPFamilies, err := source.GetInternalSupportedFamilies(kubeClient)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// error is explicitly ignored because the filter is already validated in validation.ValidateConfig
 	labelSelector, _ := labels.Parse(cfg.LabelFilter)
 
@@ -142,6 +151,7 @@ func main() {
 		OCPRouterName:                  cfg.OCPRouterName,
 		UpdateEvents:                   cfg.UpdateEvents,
 		ResolveLoadBalancerHostname:    cfg.ResolveServiceLoadBalancerHostname,
+		InternalIPFamilies:             internalIPFamilies,
 	}
 
 	// Lookup all the selected sources by names and pass them the desired configuration.

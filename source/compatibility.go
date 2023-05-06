@@ -36,14 +36,14 @@ const (
 
 // legacyEndpointsFromService tries to retrieve Endpoints from Services
 // annotated with legacy annotations.
-func legacyEndpointsFromService(svc *v1.Service, sc *serviceSource) ([]*endpoint.Endpoint, error) {
+func legacyEndpointsFromService(svc *v1.Service, sc *serviceSource, internalIPFamilies IPFamilies) ([]*endpoint.Endpoint, error) {
 	switch sc.compatibility {
 	case "mate":
 		return legacyEndpointsFromMateService(svc), nil
 	case "molecule":
 		return legacyEndpointsFromMoleculeService(svc), nil
 	case "kops-dns-controller":
-		return legacyEndpointsFromDNSControllerService(svc, sc)
+		return legacyEndpointsFromDNSControllerService(svc, sc, internalIPFamilies)
 	}
 
 	return []*endpoint.Endpoint{}, nil
@@ -108,10 +108,10 @@ func legacyEndpointsFromMoleculeService(svc *v1.Service) []*endpoint.Endpoint {
 
 // legacyEndpointsFromDNSControllerService tries to retrieve Endpoints from Services
 // annotated with DNS Controller's annotation semantics*.
-func legacyEndpointsFromDNSControllerService(svc *v1.Service, sc *serviceSource) ([]*endpoint.Endpoint, error) {
+func legacyEndpointsFromDNSControllerService(svc *v1.Service, sc *serviceSource, internalIPFamilies IPFamilies) ([]*endpoint.Endpoint, error) {
 	switch svc.Spec.Type {
 	case v1.ServiceTypeNodePort:
-		return legacyEndpointsFromDNSControllerNodePortService(svc, sc)
+		return legacyEndpointsFromDNSControllerNodePortService(svc, sc, internalIPFamilies)
 	case v1.ServiceTypeLoadBalancer:
 		return legacyEndpointsFromDNSControllerLoadBalancerService(svc), nil
 	}
@@ -122,7 +122,7 @@ func legacyEndpointsFromDNSControllerService(svc *v1.Service, sc *serviceSource)
 // legacyEndpointsFromDNSControllerNodePortService implements DNS controller's semantics for NodePort services.
 // It will use node role label to check if the node has the "node" role. This means control plane nodes and other
 // roles will not be used as targets.
-func legacyEndpointsFromDNSControllerNodePortService(svc *v1.Service, sc *serviceSource) ([]*endpoint.Endpoint, error) {
+func legacyEndpointsFromDNSControllerNodePortService(svc *v1.Service, sc *serviceSource, internalIPFamilies IPFamilies) ([]*endpoint.Endpoint, error) {
 	var endpoints []*endpoint.Endpoint
 
 	// Get the desired hostname of the service from the annotations.
@@ -167,6 +167,9 @@ func legacyEndpointsFromDNSControllerNodePortService(svc *v1.Service, sc *servic
 				}
 			}
 		}
+	}
+	if isInternal {
+		endpoints = filterInternalEndpoints(endpoints, internalIPFamilies)
 	}
 	return endpoints, nil
 }

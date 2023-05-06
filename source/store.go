@@ -74,6 +74,7 @@ type Config struct {
 	OCPRouterName                  string
 	UpdateEvents                   bool
 	ResolveLoadBalancerHostname    bool
+	InternalIPFamilies             IPFamilies
 }
 
 // ClientGenerator provides clients
@@ -216,7 +217,7 @@ func BuildWithConfig(ctx context.Context, source string, p ClientGenerator, cfg 
 		if err != nil {
 			return nil, err
 		}
-		return NewServiceSource(ctx, client, cfg.Namespace, cfg.AnnotationFilter, cfg.FQDNTemplate, cfg.CombineFQDNAndAnnotation, cfg.Compatibility, cfg.PublishInternal, cfg.PublishHostIP, cfg.AlwaysPublishNotReadyAddresses, cfg.ServiceTypeFilter, cfg.IgnoreHostnameAnnotation, cfg.LabelFilter, cfg.ResolveLoadBalancerHostname)
+		return NewServiceSource(ctx, client, cfg.Namespace, cfg.AnnotationFilter, cfg.FQDNTemplate, cfg.CombineFQDNAndAnnotation, cfg.Compatibility, cfg.PublishInternal, cfg.PublishHostIP, cfg.AlwaysPublishNotReadyAddresses, cfg.ServiceTypeFilter, cfg.IgnoreHostnameAnnotation, cfg.LabelFilter, cfg.ResolveLoadBalancerHostname, cfg.InternalIPFamilies)
 	case "ingress":
 		client, err := p.KubeClient()
 		if err != nil {
@@ -228,7 +229,7 @@ func BuildWithConfig(ctx context.Context, source string, p ClientGenerator, cfg 
 		if err != nil {
 			return nil, err
 		}
-		return NewPodSource(ctx, client, cfg.Namespace, cfg.Compatibility)
+		return NewPodSource(ctx, client, cfg.Namespace, cfg.Compatibility, cfg.InternalIPFamilies)
 	case "gateway-httproute":
 		return NewGatewayHTTPRouteSource(p, cfg)
 	case "gateway-grpcroute":
