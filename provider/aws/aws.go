@@ -737,10 +737,7 @@ func (p *AWSProvider) newChange(action string, ep *endpoint.Endpoint) (*Route53C
 		if prop, ok := ep.GetProviderSpecificProperty(providerSpecificEvaluateTargetHealth); ok {
 			evalTargetHealth = prop.Value == "true"
 		}
-		// If the endpoint has a Dualstack label, append a change for AAAA record as well.
-		if val, ok := ep.Labels[endpoint.DualstackLabelKey]; ok {
-			dualstack = val == "true"
-		}
+		dualstack = true
 		change.ResourceRecordSet.Type = aws.String(route53.RRTypeA)
 		change.ResourceRecordSet.AliasTarget = &route53.AliasTarget{
 			DNSName:              aws.String(ep.Targets[0]),

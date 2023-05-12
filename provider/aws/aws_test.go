@@ -587,6 +587,15 @@ func TestAWSCreateRecords(t *testing.T) {
 			},
 		},
 		{
+			Name: aws.String("create-test-cname-alias.zone-1.ext-dns-test-2.teapot.zalan.do."),
+			Type: aws.String(route53.RRTypeAaaa),
+			AliasTarget: &route53.AliasTarget{
+				DNSName:              aws.String("foo.eu-central-1.elb.amazonaws.com."),
+				EvaluateTargetHealth: aws.Bool(true),
+				HostedZoneId:         aws.String("Z215JYRZR1TBD5"),
+			},
+		},
+		{
 			Name:            aws.String("create-test-multiple.zone-1.ext-dns-test-2.teapot.zalan.do."),
 			Type:            aws.String(route53.RRTypeA),
 			TTL:             aws.Int64(recordTTL),
@@ -609,6 +618,15 @@ func TestAWSCreateRecords(t *testing.T) {
 		{
 			Name: aws.String("create-test-cname-alias.zone-2.ext-dns-test-2.teapot.zalan.do."),
 			Type: aws.String(route53.RRTypeA),
+			AliasTarget: &route53.AliasTarget{
+				DNSName:              aws.String("alias-target.zone-2.ext-dns-test-2.teapot.zalan.do."),
+				EvaluateTargetHealth: aws.Bool(true),
+				HostedZoneId:         aws.String("zone-2.ext-dns-test-2.teapot.zalan.do."),
+			},
+		},
+		{
+			Name: aws.String("create-test-cname-alias.zone-2.ext-dns-test-2.teapot.zalan.do."),
+			Type: aws.String(route53.RRTypeAaaa),
 			AliasTarget: &route53.AliasTarget{
 				DNSName:              aws.String("alias-target.zone-2.ext-dns-test-2.teapot.zalan.do."),
 				EvaluateTargetHealth: aws.Bool(true),
@@ -749,6 +767,15 @@ func TestAWSDeleteRecords(t *testing.T) {
 			},
 		},
 		{
+			Name: aws.String("delete-test-cname.zone-1.ext-dns-test-2.teapot.zalan.do."),
+			Type: aws.String(route53.RRTypeAaaa),
+			AliasTarget: &route53.AliasTarget{
+				DNSName:              aws.String("foo.eu-central-1.elb.amazonaws.com."),
+				EvaluateTargetHealth: aws.Bool(false),
+				HostedZoneId:         aws.String("Z215JYRZR1TBD5"),
+			},
+		},
+		{
 			Name: aws.String("delete-test-cname-alias.zone-1.ext-dns-test-2.teapot.zalan.do."),
 			Type: aws.String(route53.RRTypeA),
 			AliasTarget: &route53.AliasTarget{
@@ -758,8 +785,26 @@ func TestAWSDeleteRecords(t *testing.T) {
 			},
 		},
 		{
+			Name: aws.String("delete-test-cname-alias.zone-1.ext-dns-test-2.teapot.zalan.do."),
+			Type: aws.String(route53.RRTypeAaaa),
+			AliasTarget: &route53.AliasTarget{
+				DNSName:              aws.String("foo.eu-central-1.elb.amazonaws.com."),
+				EvaluateTargetHealth: aws.Bool(true),
+				HostedZoneId:         aws.String("Z215JYRZR1TBD5"),
+			},
+		},
+		{
 			Name: aws.String("delete-test-cname-alias.zone-2.ext-dns-test-2.teapot.zalan.do."),
 			Type: aws.String(route53.RRTypeA),
+			AliasTarget: &route53.AliasTarget{
+				DNSName:              aws.String("delete-test.zone-2.ext-dns-test-2.teapot.zalan.do."),
+				EvaluateTargetHealth: aws.Bool(true),
+				HostedZoneId:         aws.String("zone-2.ext-dns-test-2.teapot.zalan.do."),
+			},
+		},
+		{
+			Name: aws.String("delete-test-cname-alias.zone-2.ext-dns-test-2.teapot.zalan.do."),
+			Type: aws.String(route53.RRTypeAaaa),
 			AliasTarget: &route53.AliasTarget{
 				DNSName:              aws.String("delete-test.zone-2.ext-dns-test-2.teapot.zalan.do."),
 				EvaluateTargetHealth: aws.Bool(true),
@@ -845,6 +890,15 @@ func TestAWSApplyChanges(t *testing.T) {
 			{
 				Name: aws.String("update-test-alias-to-cname.zone-1.ext-dns-test-2.teapot.zalan.do."),
 				Type: aws.String(route53.RRTypeA),
+				AliasTarget: &route53.AliasTarget{
+					DNSName:              aws.String("foo.eu-central-1.elb.amazonaws.com."),
+					EvaluateTargetHealth: aws.Bool(true),
+					HostedZoneId:         aws.String("Z215JYRZR1TBD5"),
+				},
+			},
+			{
+				Name: aws.String("update-test-alias-to-cname.zone-1.ext-dns-test-2.teapot.zalan.do."),
+				Type: aws.String(route53.RRTypeAaaa),
 				AliasTarget: &route53.AliasTarget{
 					DNSName:              aws.String("foo.eu-central-1.elb.amazonaws.com."),
 					EvaluateTargetHealth: aws.Bool(true),
@@ -1021,6 +1075,15 @@ func TestAWSApplyChanges(t *testing.T) {
 			{
 				Name: aws.String("update-test-a-to-cname.zone-1.ext-dns-test-2.teapot.zalan.do."),
 				Type: aws.String(route53.RRTypeA),
+				AliasTarget: &route53.AliasTarget{
+					DNSName:              aws.String("foo.elb.amazonaws.com."),
+					EvaluateTargetHealth: aws.Bool(true),
+					HostedZoneId:         aws.String("zone-1.ext-dns-test-2.teapot.zalan.do."),
+				},
+			},
+			{
+				Name: aws.String("update-test-a-to-cname.zone-1.ext-dns-test-2.teapot.zalan.do."),
+				Type: aws.String(route53.RRTypeAaaa),
 				AliasTarget: &route53.AliasTarget{
 					DNSName:              aws.String("foo.elb.amazonaws.com."),
 					EvaluateTargetHealth: aws.Bool(true),
@@ -1664,7 +1727,7 @@ func TestAWSCreateRecordsWithALIAS(t *testing.T) {
 	} {
 		provider, _ := newAWSProvider(t, endpoint.NewDomainFilter([]string{"ext-dns-test-2.teapot.zalan.do."}), provider.NewZoneIDFilter([]string{}), provider.NewZoneTypeFilter(""), defaultEvaluateTargetHealth, false, nil)
 
-		// Test dualstack and ipv4 load balancer targets
+		// Test load balancer targets
 		records := []*endpoint.Endpoint{
 			{
 				DNSName:    "create-test.zone-1.ext-dns-test-2.teapot.zalan.do",
@@ -1676,18 +1739,6 @@ func TestAWSCreateRecordsWithALIAS(t *testing.T) {
 						Value: key,
 					},
 				},
-			},
-			{
-				DNSName:    "create-test-dualstack.zone-1.ext-dns-test-2.teapot.zalan.do",
-				Targets:    endpoint.Targets{"bar.eu-central-1.elb.amazonaws.com"},
-				RecordType: endpoint.RecordTypeCNAME,
-				ProviderSpecific: endpoint.ProviderSpecific{
-					endpoint.ProviderSpecificProperty{
-						Name:  providerSpecificEvaluateTargetHealth,
-						Value: key,
-					},
-				},
-				Labels: map[string]string{endpoint.DualstackLabelKey: "true"},
 			},
 		}
 
@@ -1707,20 +1758,11 @@ func TestAWSCreateRecordsWithALIAS(t *testing.T) {
 			},
 			{
 				AliasTarget: &route53.AliasTarget{
-					DNSName:              aws.String("bar.eu-central-1.elb.amazonaws.com."),
+					DNSName:              aws.String("foo.eu-central-1.elb.amazonaws.com."),
 					EvaluateTargetHealth: aws.Bool(evaluateTargetHealth),
 					HostedZoneId:         aws.String("Z215JYRZR1TBD5"),
 				},
-				Name: aws.String("create-test-dualstack.zone-1.ext-dns-test-2.teapot.zalan.do."),
-				Type: aws.String(route53.RRTypeA),
-			},
-			{
-				AliasTarget: &route53.AliasTarget{
-					DNSName:              aws.String("bar.eu-central-1.elb.amazonaws.com."),
-					EvaluateTargetHealth: aws.Bool(evaluateTargetHealth),
-					HostedZoneId:         aws.String("Z215JYRZR1TBD5"),
-				},
-				Name: aws.String("create-test-dualstack.zone-1.ext-dns-test-2.teapot.zalan.do."),
+				Name: aws.String("create-test.zone-1.ext-dns-test-2.teapot.zalan.do."),
 				Type: aws.String(route53.RRTypeAaaa),
 			},
 		})
