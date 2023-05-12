@@ -31,9 +31,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/external-dns/internal/testutils"
 
 	"sigs.k8s.io/external-dns/endpoint"
-	"sigs.k8s.io/external-dns/internal/testutils"
 	"sigs.k8s.io/external-dns/plan"
 	"sigs.k8s.io/external-dns/provider"
 )
@@ -366,8 +366,26 @@ func TestAWSRecords(t *testing.T) {
 			},
 		},
 		{
+			Name: aws.String("list-test-alias.zone-1.ext-dns-test-2.teapot.zalan.do."),
+			Type: aws.String(route53.RRTypeAaaa),
+			AliasTarget: &route53.AliasTarget{
+				DNSName:              aws.String("foo.eu-central-1.elb.amazonaws.com."),
+				EvaluateTargetHealth: aws.Bool(false),
+				HostedZoneId:         aws.String("Z215JYRZR1TBD5"),
+			},
+		},
+		{
 			Name: aws.String("*.wildcard-test-alias.zone-1.ext-dns-test-2.teapot.zalan.do."),
 			Type: aws.String(route53.RRTypeA),
+			AliasTarget: &route53.AliasTarget{
+				DNSName:              aws.String("foo.eu-central-1.elb.amazonaws.com."),
+				EvaluateTargetHealth: aws.Bool(false),
+				HostedZoneId:         aws.String("Z215JYRZR1TBD5"),
+			},
+		},
+		{
+			Name: aws.String("*.wildcard-test-alias.zone-1.ext-dns-test-2.teapot.zalan.do"),
+			Type: aws.String(route53.RRTypeAaaa),
 			AliasTarget: &route53.AliasTarget{
 				DNSName:              aws.String("foo.eu-central-1.elb.amazonaws.com."),
 				EvaluateTargetHealth: aws.Bool(false),
@@ -380,6 +398,51 @@ func TestAWSRecords(t *testing.T) {
 			AliasTarget: &route53.AliasTarget{
 				DNSName:              aws.String("foo.eu-central-1.elb.amazonaws.com."),
 				EvaluateTargetHealth: aws.Bool(true),
+				HostedZoneId:         aws.String("Z215JYRZR1TBD5"),
+			},
+		},
+		{
+			Name: aws.String("list-test-alias-evaluate.zone-1.ext-dns-test-2.teapot.zalan.do."),
+			Type: aws.String(route53.RRTypeAaaa),
+			AliasTarget: &route53.AliasTarget{
+				DNSName:              aws.String("foo.eu-central-1.elb.amazonaws.com."),
+				EvaluateTargetHealth: aws.Bool(true),
+				HostedZoneId:         aws.String("Z215JYRZR1TBD5"),
+			},
+		},
+		{
+			Name: aws.String("list-test-alias-ipv4only.zone-1.ext-dns-test-2.teapot.zalan.do."),
+			Type: aws.String(route53.RRTypeA),
+			AliasTarget: &route53.AliasTarget{
+				DNSName:              aws.String("foo.eu-central-1.elb.amazonaws.com."),
+				EvaluateTargetHealth: aws.Bool(false),
+				HostedZoneId:         aws.String("Z215JYRZR1TBD5"),
+			},
+		},
+		{
+			Name: aws.String("list-test-alias-ipv6only.zone-1.ext-dns-test-2.teapot.zalan.do."),
+			Type: aws.String(route53.RRTypeAaaa),
+			AliasTarget: &route53.AliasTarget{
+				DNSName:              aws.String("foo.eu-central-1.elb.amazonaws.com."),
+				EvaluateTargetHealth: aws.Bool(false),
+				HostedZoneId:         aws.String("Z215JYRZR1TBD5"),
+			},
+		},
+		{
+			Name: aws.String("list-test-alias-discrepancy.zone-1.ext-dns-test-2.teapot.zalan.do."),
+			Type: aws.String(route53.RRTypeA),
+			AliasTarget: &route53.AliasTarget{
+				DNSName:              aws.String("foo.eu-central-1.elb.amazonaws.com."),
+				EvaluateTargetHealth: aws.Bool(true),
+				HostedZoneId:         aws.String("Z215JYRZR1TBD5"),
+			},
+		},
+		{
+			Name: aws.String("list-test-alias-discrepancy.zone-1.ext-dns-test-2.teapot.zalan.do."),
+			Type: aws.String(route53.RRTypeAaaa),
+			AliasTarget: &route53.AliasTarget{
+				DNSName:              aws.String("foo.eu-central-1.elb.amazonaws.com."),
+				EvaluateTargetHealth: aws.Bool(false),
 				HostedZoneId:         aws.String("Z215JYRZR1TBD5"),
 			},
 		},
@@ -501,6 +564,9 @@ func TestAWSRecords(t *testing.T) {
 		endpoint.NewEndpointWithTTL("list-test-alias.zone-1.ext-dns-test-2.teapot.zalan.do", endpoint.RecordTypeCNAME, endpoint.TTL(recordTTL), "foo.eu-central-1.elb.amazonaws.com").WithProviderSpecific(providerSpecificEvaluateTargetHealth, "false").WithProviderSpecific(providerSpecificAlias, "true"),
 		endpoint.NewEndpointWithTTL("*.wildcard-test-alias.zone-1.ext-dns-test-2.teapot.zalan.do", endpoint.RecordTypeCNAME, endpoint.TTL(recordTTL), "foo.eu-central-1.elb.amazonaws.com").WithProviderSpecific(providerSpecificEvaluateTargetHealth, "false").WithProviderSpecific(providerSpecificAlias, "true"),
 		endpoint.NewEndpointWithTTL("list-test-alias-evaluate.zone-1.ext-dns-test-2.teapot.zalan.do", endpoint.RecordTypeCNAME, endpoint.TTL(recordTTL), "foo.eu-central-1.elb.amazonaws.com").WithProviderSpecific(providerSpecificEvaluateTargetHealth, "true").WithProviderSpecific(providerSpecificAlias, "true"),
+		endpoint.NewEndpointWithTTL("list-test-alias-ipv4only.zone-1.ext-dns-test-2.teapot.zalan.do", endpoint.RecordTypeCNAME, endpoint.TTL(recordTTL), "foo.eu-central-1.elb.amazonaws.com").WithProviderSpecific(providerSpecificEvaluateTargetHealth, "false").WithProviderSpecific(providerSpecificAlias, "ipv4only"),
+		endpoint.NewEndpointWithTTL("list-test-alias-ipv6only.zone-1.ext-dns-test-2.teapot.zalan.do", endpoint.RecordTypeCNAME, endpoint.TTL(recordTTL), "foo.eu-central-1.elb.amazonaws.com").WithProviderSpecific(providerSpecificEvaluateTargetHealth, "false").WithProviderSpecific(providerSpecificAlias, "ipv6only"),
+		endpoint.NewEndpointWithTTL("list-test-alias-discrepancy.zone-1.ext-dns-test-2.teapot.zalan.do", endpoint.RecordTypeCNAME, endpoint.TTL(recordTTL), "foo.eu-central-1.elb.amazonaws.com").WithProviderSpecific(providerSpecificEvaluateTargetHealth, "true").WithProviderSpecific(providerSpecificAlias, "discrepancy"),
 		endpoint.NewEndpointWithTTL("list-test-multiple.zone-1.ext-dns-test-2.teapot.zalan.do", endpoint.RecordTypeA, endpoint.TTL(recordTTL), "8.8.8.8", "8.8.4.4"),
 		endpoint.NewEndpointWithTTL("prefix-*.wildcard.zone-1.ext-dns-test-2.teapot.zalan.do", endpoint.RecordTypeTXT, endpoint.TTL(recordTTL), "random"),
 		endpoint.NewEndpointWithTTL("weight-test.zone-1.ext-dns-test-2.teapot.zalan.do", endpoint.RecordTypeA, endpoint.TTL(recordTTL), "1.2.3.4").WithSetIdentifier("test-set-1").WithProviderSpecific(providerSpecificWeight, "10"),

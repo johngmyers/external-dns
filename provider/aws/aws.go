@@ -42,13 +42,15 @@ const (
 	recordTTL = 300
 	// From the experiments, it seems that the default MaxItems applied is 100,
 	// and that, on the server side, there is a hard limit of 300 elements per page.
-	// After a discussion with AWS representants, clients should accept
-	// when less items are returned, and still paginate accordingly.
+	// After a discussion with AWS representatives, clients should accept
+	// when fewer items are returned and still paginate accordingly.
 	// As we are using the standard AWS client, this should already be compliant.
-	// Hence, ifever AWS decides to raise this limit, we will automatically reduce the pressure on rate limits
+	// Hence, if AWS ever decides to raise this limit we will automatically reduce the pressure on rate limits.
 	route53PageSize = "300"
-	// provider specific key that designates whether an AWS ALIAS record has the EvaluateTargetHealth
-	// field set to true.
+	// providerSpecificAlias contains the value `true` if a CNAME endpoint should be rendered in Route53 as a pair
+	// of A and AAAA alias records. It contains the value `ipv4only` if Route53 only contains an A alias record,
+	// the value `ipv6only` if Route53 only contains an AAAA alias record, and `discrepancy` if the AAAA alias record
+	// exists but does not match the corresponding A alias record.
 	providerSpecificAlias                      = "alias"
 	providerSpecificTargetHostedZone           = "aws/target-hosted-zone"
 	providerSpecificEvaluateTargetHealth       = "aws/evaluate-target-health"
@@ -367,8 +369,14 @@ func (p *AWSProvider) Records(ctx context.Context) (endpoints []*endpoint.Endpoi
 	return p.records(ctx, zones)
 }
 
+type recordKey struct {
+	dnsName       string
+	setIdentifier string
+}
+
 func (p *AWSProvider) records(ctx context.Context, zones map[string]*route53.HostedZone) ([]*endpoint.Endpoint, error) {
 	endpoints := make([]*endpoint.Endpoint, 0)
+	pendingAliases := map[recordKey]*route53.ResourceRecordSet{}
 	f := func(resp *route53.ListResourceRecordSetsOutput, lastPage bool) (shouldContinue bool) {
 		for _, r := range resp.ResourceRecordSets {
 			newEndpoints := make([]*endpoint.Endpoint, 0)
@@ -392,14 +400,47 @@ func (p *AWSProvider) records(ctx context.Context, zones map[string]*route53.Hos
 			}
 
 			if r.AliasTarget != nil {
+				if aws.StringValue(r.Type) != route53.RRTypeA && aws.StringValue(r.Type) != route53.RRTypeAaaa {
+					continue
+				}
+
+				// Save in pendingAliases until we have both A and AAAA.
+				key := recordKey{
+					dnsName:       aws.StringValue(r.Name),
+					setIdentifier: aws.StringValue(r.SetIdentifier),
+				}
+				otherR := pendingAliases[key]
+				if otherR == nil {
+					pendingAliases[key] = r
+					continue
+				}
+				delete(pendingAliases, key)
+
 				// Alias records don't have TTLs so provide the default to match the TXT generation
 				if ttl == 0 {
 					ttl = recordTTL
 				}
-				ep := endpoint.
-					NewEndpointWithTTL(wildcardUnescape(aws.StringValue(r.Name)), endpoint.RecordTypeCNAME, ttl, aws.StringValue(r.AliasTarget.DNSName)).
-					WithProviderSpecific(providerSpecificEvaluateTargetHealth, fmt.Sprintf("%t", aws.BoolValue(r.AliasTarget.EvaluateTargetHealth))).
-					WithProviderSpecific(providerSpecificAlias, "true")
+				ep := endpoint.NewEndpointWithTTL(wildcardUnescape(aws.StringValue(r.Name)), endpoint.RecordTypeCNAME, ttl, aws.StringValue(r.AliasTarget.DNSName))
+				if aws.BoolValue(r.AliasTarget.EvaluateTargetHealth) == aws.BoolValue(otherR.AliasTarget.EvaluateTargetHealth) &&
+					aws.StringValue(r.AliasTarget.HostedZoneId) == aws.StringValue(otherR.AliasTarget.HostedZoneId) &&
+					aws.Int64Value(r.Weight) == aws.Int64Value(otherR.Weight) &&
+					aws.StringValue(r.Region) == aws.StringValue(otherR.Region) &&
+					aws.StringValue(r.Failover) == aws.StringValue(otherR.Failover) &&
+					aws.BoolValue(r.MultiValueAnswer) == aws.BoolValue(otherR.MultiValueAnswer) &&
+					aws.StringValue(r.HealthCheckId) == aws.StringValue(otherR.HealthCheckId) &&
+					((r.GeoLocation == nil && otherR.GeoLocation == nil) || (r.GeoLocation != nil && otherR.GeoLocation != nil &&
+						aws.StringValue(r.GeoLocation.ContinentCode) == aws.StringValue(otherR.GeoLocation.ContinentCode) &&
+						aws.StringValue(r.GeoLocation.CountryCode) == aws.StringValue(otherR.GeoLocation.CountryCode) &&
+						aws.StringValue(r.GeoLocation.SubdivisionCode) == aws.StringValue(otherR.GeoLocation.SubdivisionCode))) {
+					ep = ep.WithProviderSpecific(providerSpecificAlias, "true")
+				} else {
+					ep = ep.WithProviderSpecific(providerSpecificAlias, "discrepancy")
+					if aws.StringValue(r.Type) == route53.RRTypeAaaa {
+						// Take the values from the A record for consistency.
+						r = otherR
+					}
+				}
+				ep = ep.WithProviderSpecific(providerSpecificEvaluateTargetHealth, fmt.Sprintf("%t", aws.BoolValue(r.AliasTarget.EvaluateTargetHealth)))
 				newEndpoints = append(newEndpoints, ep)
 			}
 
@@ -451,6 +492,22 @@ func (p *AWSProvider) records(ctx context.Context, zones map[string]*route53.Hos
 		if err := p.client.ListResourceRecordSetsPagesWithContext(ctx, params, f); err != nil {
 			return nil, errors.Wrapf(err, "failed to list resource records sets for zone %s", *z.Id)
 		}
+	}
+
+	for _, r := range pendingAliases {
+		ep := endpoint.
+			NewEndpointWithTTL(wildcardUnescape(aws.StringValue(r.Name)), endpoint.RecordTypeCNAME, recordTTL, aws.StringValue(r.AliasTarget.DNSName)).
+			WithProviderSpecific(providerSpecificEvaluateTargetHealth, fmt.Sprintf("%t", aws.BoolValue(r.AliasTarget.EvaluateTargetHealth)))
+		if aws.StringValue(r.Type) == route53.RRTypeA {
+			ep = ep.WithProviderSpecific(providerSpecificAlias, "ipv4only")
+		} else {
+			ep = ep.WithProviderSpecific(providerSpecificAlias, "ipv6only")
+		}
+		if r.SetIdentifier != nil {
+			ep.SetIdentifier = aws.StringValue(r.SetIdentifier)
+			// Since these will be reconciled with an upsert anyway, we don't need to fill in the details.
+		}
+		endpoints = append(endpoints, ep)
 	}
 
 	return endpoints, nil
@@ -697,7 +754,7 @@ func (p *AWSProvider) AdjustEndpoints(endpoints []*endpoint.Endpoint) []*endpoin
 	for _, ep := range endpoints {
 		alias := false
 		if aliasString, ok := ep.GetProviderSpecificProperty(providerSpecificAlias); ok {
-			alias = aliasString.Value == "true"
+			alias = aliasString.Value != "false"
 		} else if useAlias(ep, p.preferCNAME) {
 			alias = true
 			log.Debugf("Modifying endpoint: %v, setting %s=true", ep, providerSpecificAlias)
@@ -1016,7 +1073,7 @@ func useAlias(ep *endpoint.Endpoint, preferCNAME bool) bool {
 // and (if so) returns the target hosted zone ID
 func isAWSAlias(ep *endpoint.Endpoint) string {
 	prop, exists := ep.GetProviderSpecificProperty(providerSpecificAlias)
-	if exists && prop.Value == "true" && ep.RecordType == endpoint.RecordTypeCNAME && len(ep.Targets) > 0 {
+	if exists && prop.Value != "false" && ep.RecordType == endpoint.RecordTypeCNAME && len(ep.Targets) > 0 {
 		// alias records can only point to canonical hosted zones (e.g. to ELBs) or other records in the same zone
 
 		if hostedZoneID, ok := ep.GetProviderSpecificProperty(providerSpecificTargetHostedZone); ok {
