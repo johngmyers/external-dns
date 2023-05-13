@@ -801,6 +801,16 @@ func (p *AWSProvider) newChange(action string, ep *endpoint.Endpoint) (*Route53C
 			HostedZoneId:         aws.String(cleanZoneID(targetHostedZone)),
 			EvaluateTargetHealth: aws.Bool(evalTargetHealth),
 		}
+		if action == route53.ChangeActionDelete {
+			prop, _ := ep.GetProviderSpecificProperty(providerSpecificAlias)
+			switch prop.Value {
+			case "ipv4only", "discrepancy":
+				dualstack = false
+			case "ipv6only":
+				change.ResourceRecordSet.Type = aws.String(route53.RRTypeAaaa)
+				dualstack = false
+			}
+		}
 	} else {
 		change.ResourceRecordSet.Type = aws.String(ep.RecordType)
 		if !ep.RecordTTL.IsConfigured() {
